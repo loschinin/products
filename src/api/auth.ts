@@ -1,9 +1,19 @@
+// src/api/auth.ts
 import api from "./axios";
-import type { LoginCredentials, AuthResponse } from "@/types/auth";
+import type { AuthResponse } from "@/types/auth";
+
+interface LoginRequest {
+  username: string;
+  password: string;
+  rememberMe: boolean;
+}
 
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data } = await api.post<AuthResponse>("/auth/login", credentials);
+  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    const { data } = await api.post<AuthResponse>("/auth/login", {
+      username: credentials.username,
+      password: credentials.password,
+    });
     return data;
   },
 
