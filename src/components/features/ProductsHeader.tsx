@@ -1,24 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Box, TextField, Button, InputAdornment } from "@mui/material";
-import { Search, Add, Logout } from "@mui/icons-material";
+import { Search, Logout } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface ProductsHeaderProps {
   onSearch: (query: string) => void;
-  onAddClick: () => void;
 }
 
-export function ProductsHeader({ onSearch, onAddClick }: ProductsHeaderProps) {
+export function ProductsHeader({ onSearch }: ProductsHeaderProps) {
   const [searchValue, setSearchValue] = useState("");
   const { user, logout } = useAuth();
 
   const debouncedSearch = useDebounce(searchValue, 500);
 
-  // Эффект для отправки поиска
-  if (debouncedSearch !== undefined) {
+  useEffect(() => {
     onSearch(debouncedSearch);
-  }
+  }, [debouncedSearch, onSearch]);
 
   return (
     <Box
@@ -26,7 +24,6 @@ export function ProductsHeader({ onSearch, onAddClick }: ProductsHeaderProps) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        mb: 3,
         gap: 2,
         flexWrap: "wrap",
       }}
@@ -46,10 +43,6 @@ export function ProductsHeader({ onSearch, onAddClick }: ProductsHeaderProps) {
       />
 
       <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-        <Button variant="contained" startIcon={<Add />} onClick={onAddClick}>
-          Добавить
-        </Button>
-
         <Button variant="outlined" startIcon={<Logout />} onClick={logout}>
           {user?.firstName || "Выход"}
         </Button>

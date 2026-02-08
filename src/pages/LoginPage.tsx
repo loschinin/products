@@ -23,13 +23,12 @@ export default function LoginPage() {
       }}
     >
       <Paper
-        elevation={3}
+        elevation={0}
         sx={{
+          width: 380,
           p: 4,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 3,
+          borderRadius: 4,
+          boxShadow: "0 20px 60px rgba(0,0,0,.08)",
         }}
       >
         <Typography variant="h5" component="h1">

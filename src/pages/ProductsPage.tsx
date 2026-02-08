@@ -5,12 +5,21 @@ import {
   LinearProgress,
   Snackbar,
   Alert,
+  Stack,
+  Paper,
+  Button,
+  Tooltip,
 } from "@mui/material";
-import { ProductsTable } from "@/components/features/ProductsTable";
+import CachedIcon from "@mui/icons-material/Cached";
+import ControlPointIcon from "@mui/icons-material/ControlPoint";
+import { ProductsTable, NEW_ROW_ID } from "@/components/features/ProductsTable";
 import { ProductsHeader } from "@/components/features/ProductsHeader";
-import { useProducts, useUpdateProduct } from "@/hooks/useProducts";
-import { useDebounce } from "@/hooks/useDebounce";
-import type { ProductsQueryParams } from "@/types/product";
+import {
+  useProducts,
+  useAddProduct,
+  useUpdateProduct,
+} from "@/hooks/useProducts";
+import type { Product, ProductsQueryParams } from "@/types/product";
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +27,7 @@ export default function ProductsPage() {
     field: string;
     order: "asc" | "desc";
   } | null>(null);
+  const [newRowId, setNewRowId] = useState<number | null>(null);
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -28,19 +38,50 @@ export default function ProductsPage() {
     severity: "success",
   });
 
-  const debouncedSearch = useDebounce(searchQuery, 500);
-
   const queryParams: ProductsQueryParams = {
     limit: 100,
-    ...(debouncedSearch && { q: debouncedSearch }),
+    ...(searchQuery && { q: searchQuery }),
     ...(sortParams && { sortBy: sortParams.field, order: sortParams.order }),
   };
 
-  const { data, isLoading, isFetching } = useProducts(
-    debouncedSearch ? { q: debouncedSearch } : queryParams
-  );
+  const { data, isLoading, isFetching, refetch } = useProducts(queryParams);
 
+  const addProduct = useAddProduct();
   const updateProduct = useUpdateProduct();
+
+  const getDisplayProducts = (): Product[] => {
+    const products = data?.products || [];
+
+    if (newRowId !== null) {
+      const emptyRow: Product = {
+        id: NEW_ROW_ID,
+        title: "",
+        brand: "",
+        sku: "",
+        price: 0,
+        rating: 0,
+        stock: 0,
+        minimumOrderQuantity: 1,
+        category: "",
+        description: "",
+        discountPercentage: 0,
+        tags: [],
+        weight: 0,
+        dimensions: { width: 0, height: 0, depth: 0 },
+        warrantyInformation: "",
+        shippingInformation: "",
+        availabilityStatus: "",
+        reviews: [],
+        returnPolicy: "",
+        meta: { createdAt: "", updatedAt: "", barcode: "", qrCode: "" },
+        images: [],
+        thumbnail: "",
+      };
+      return [emptyRow, ...products];
+    }
+
+    return products;
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -50,9 +91,13 @@ export default function ProductsPage() {
     setSortParams({ field, order });
   };
 
-  const handleProductUpdate = (id: number, data: Record<string, unknown>) => {
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handleProductUpdate = (id: number, updates: Partial<Product>) => {
     updateProduct.mutate(
-      { id, data },
+      { id, data: updates },
       {
         onSuccess: () => {
           setToast({
@@ -72,28 +117,105 @@ export default function ProductsPage() {
     );
   };
 
+  const handleProductAdd = async (
+    productData: Partial<Product>
+  ): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      addProduct.mutate(
+        {
+          title: productData.title || "",
+          price: productData.price || 0,
+          brand: productData.brand,
+          sku: productData.sku || "",
+        },
+        {
+          onSuccess: () => {
+            setNewRowId(null);
+            setToast({
+              open: true,
+              message: "Товар успешно добавлен",
+              severity: "success",
+            });
+            resolve();
+          },
+          onError: (error) => {
+            setToast({
+              open: true,
+              message: "Ошибка при добавлении товара",
+              severity: "error",
+            });
+            reject(error);
+          },
+        }
+      );
+    });
+  };
+
   const handleAddClick = () => {
-    // TODO: открыть модалку добавления
-    console.log("Add product clicked");
+    if (newRowId === null) {
+      setNewRowId(NEW_ROW_ID);
+    }
+  };
+
+  const handleCancelNewRow = () => {
+    setNewRowId(null);
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Товары
-      </Typography>
-
-      <ProductsHeader onSearch={handleSearch} onAddClick={handleAddClick} />
-
+    <Container
+      maxWidth="xl"
+      sx={{ display: "flex", flexDirection: "column", py: 3, gap: 2 }}
+    >
+      <Paper>
+        <Stack
+          flexDirection="row"
+          gap={2}
+          p="26px"
+          justifyContent="space-between"
+        >
+          <Typography variant="h4">Товары</Typography>
+          <ProductsHeader onSearch={handleSearch} />
+        </Stack>
+      </Paper>
       {(isLoading || isFetching) && <LinearProgress sx={{ mb: 2 }} />}
 
-      <ProductsTable
-        products={data?.products || []}
-        loading={isLoading}
-        onSortChange={handleSortChange}
-        onProductUpdate={handleProductUpdate}
-      />
-
+      <Paper>
+        <Stack flexDirection="row" gap={2} justifyContent="space-between" p={2}>
+          <Typography variant="h6">Все позиции</Typography>
+          <Stack flexDirection="row" gap={1}>
+            <Tooltip title="Обновить">
+              <Button
+                variant="outlined"
+                onClick={handleRefresh}
+                disabled={isFetching}
+                color="neutral"
+                sx={{
+                  minWidth: "auto",
+                  px: 1,
+                }}
+              >
+                <CachedIcon />
+              </Button>
+            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<ControlPointIcon />}
+              onClick={handleAddClick}
+            >
+              Добавить
+            </Button>
+          </Stack>
+        </Stack>
+        <ProductsTable
+          products={getDisplayProducts()}
+          loading={isLoading}
+          onSortChange={handleSortChange}
+          onProductUpdate={handleProductUpdate}
+          onProductAdd={handleProductAdd}
+          newRowId={newRowId}
+          onCancelNewRow={handleCancelNewRow}
+        />
+      </Paper>
       <Snackbar
         open={toast.open}
         autoHideDuration={3000}
